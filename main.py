@@ -7,6 +7,10 @@ from src.trust_network import TrustNetwork
 from src.model import HybridModel
 from src.metrics import calculate_metrics
 from sklearn.model_selection import train_test_split
+from src.visualization import plot_training_history, plot_prediction_analysis
+from datetime import datetime
+import os
+import json
 
 def load_data(rating_path, trust_path):
     """Load data from .mat files"""
@@ -107,7 +111,7 @@ def main():
             item_ids=train_items,
             labels=train_labels,
             batch_size=32,
-            epochs=5
+            epochs=20
         )
         
         # Make predictions on test set
@@ -120,6 +124,43 @@ def main():
         
         # Calculate metrics
         metrics = calculate_metrics(test_labels, predictions)
+        
+        # Store metrics in a log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_data = {
+            "timestamp": timestamp,
+            "metrics": {
+                "rmse": float(metrics['rmse']),
+                "precision": float(metrics['precision']),
+                "recall": float(metrics['recall']),
+                "f1_score": float(metrics['f1_score'])
+            },
+            "training_params": {
+                "batch_size": 32,
+                "epochs": 20,
+                "test_size": 0.2
+            },
+            "sample_predictions": [
+                {
+                    "user_id": int(test_users[i]),
+                    "item_id": int(test_items[i]),
+                    "predicted": float(predictions[i][0]),
+                    "actual": float(test_labels[i][0])
+                }
+                for i in range(5)
+            ]
+        }
+        
+        # Create logs directory if it doesn't exist
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        
+        # Save metrics to JSON file
+        log_file = f'logs/metrics_{timestamp}.json'
+        with open(log_file, 'w') as f:
+            json.dump(log_data, f, indent=4)
+        
+        print(f"\nMetrics saved to: {log_file}")
         
         # Print evaluation metrics
         print("\nModel Evaluation Metrics:")
@@ -134,6 +175,12 @@ def main():
             print(f"User {test_users[i]}, Item {test_items[i]}: "
                   f"Predicted Rating = {predictions[i][0]:.2f}, "
                   f"Actual Rating = {test_labels[i][0]:.2f}")
+        
+        # Plot training history
+        plot_training_history(history)
+        
+        # Plot prediction analysis
+        plot_prediction_analysis(test_labels, predictions)
         
     except Exception as e:
         print(f"Error during model training: {e}")
